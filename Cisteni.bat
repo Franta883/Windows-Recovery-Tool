@@ -13,6 +13,25 @@ if %errorLevel% == 0 (
     exit
 )
 echo.
+echo ==================================================================== > "%temp%\disclaimer.txt"
+echo   WARNING / DISCLAIMER - READ BEFORE PROCEEDING >> "%temp%\disclaimer.txt"
+echo ==================================================================== >> "%temp%\disclaimer.txt"
+echo This tool modifies critical Windows registry keys and system settings. >> "%temp%\disclaimer.txt"
+echo It is intended for system recovery and educational purposes only. >> "%temp%\disclaimer.txt"
+echo. >> "%temp%\disclaimer.txt"
+echo BY CLOSING THIS NOTEPAD AND CONTINUING, YOU AGREE THAT: >> "%temp%\disclaimer.txt"
+echo 1. You are running this script entirely AT YOUR OWN RISK. >> "%temp%\disclaimer.txt"
+echo 2. The author (Franta883) is NOT responsible for any data loss, >> "%temp%\disclaimer.txt"
+echo    system instability, or damages to your operating system. >> "%temp%\disclaimer.txt"
+echo 3. You have been warned to test this tool in a Virtual Machine first. >> "%temp%\disclaimer.txt"
+echo ==================================================================== >> "%temp%\disclaimer.txt"
+
+:: Open the disclaimer and FORCE the script to wait until the user closes it
+start /wait notepad.exe "%temp%\disclaimer.txt"
+
+:: Clean up the temporary file after notepad is closed
+del "%temp%\disclaimer.txt" >nul 2>&1
+
 
 echo ==================================================
 echo AUTOMATIC REGISTRY AND SYSTEM MAINTENANCE (SYSTEM)

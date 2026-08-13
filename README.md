@@ -1,4 +1,5 @@
 # Windows Security Audit & Surgical Recovery Tool
+> ⚠️ **Project Status & Disclaimer:** This project is actively maintained and updated by the author. However, the software is provided **"AS-IS"** without any warranties. You are running this script entirely at your own risk. The author is not responsible for any system damage or data loss. Always test in a Virtual Machine first!
 
 A transparent, open-source Windows batch (`.bat`) script designed for deep system diagnostics, critical registry auditing, and surgical recovery of corrupted or malware-compromised system components.
 

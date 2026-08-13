@@ -32,4 +32,4 @@ A transparent, open-source Windows batch (`.bat`) script designed for deep syste
 
 ---
 *This tool is purely native, dependency-free, and open-source for 100% transparency.*
-*You can freely modify, ship and use this product.
+*You can freely modify, ship and use this product.*

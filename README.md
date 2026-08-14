@@ -32,6 +32,9 @@ A transparent, open-source Windows batch (`.bat`) script designed for deep syste
 2. Right-click the file and select **Run as Administrator** (requires highest privileges).
 3. Follow the on-screen prompts to select your mode, and let the tool do its work. A system reboot is highly recommended after completion.
 
+
+### IMPORTANT 
+"Please note: This tool is designed to repair system damage and restore administrative access after an infection, rather than acting as a real-time antivirus scanner. If highly aggressive malware is actively terminating system processes, you should run this script from Windows Safe Mode."
 ---
 *This tool is purely native, dependency-free, and open-source for 100% transparency.*
 *You can freely modify, ship and use this product.*

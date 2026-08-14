@@ -1,4 +1,6 @@
 # Windows Security Audit & Surgical Recovery Tool
+## Credits
+* Inspired by **FixWin 11** for core recovery concept ideas.
 > ⚠️ **Project Status & Disclaimer:** This project is actively maintained and updated by the author. However, the software is provided **"AS-IS"** without any warranties. You are running this script entirely at your own risk. The author is not responsible for any system damage or data loss. Always test in a Virtual Machine first!
 ⚠️ DO NOT copy-paste the raw code lines directly into an open CMD window. Always save the code as a .bat file and run it by double-clicking, otherwise the registry percentage escaping will corrupt your system binary execution logic!
 > 

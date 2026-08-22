@@ -3,6 +3,7 @@
 * Inspired by **FixWin 11** for core recovery concept ideas, Inspired by **RKILL** for design and much more.
 > ⚠️ **Project Status & Disclaimer:** This project is actively maintained and updated by the author. However, the software is provided **"AS-IS"** without any warranties. You are running this script entirely at your own risk. The author is not responsible for any system damage or data loss. Always test in a Virtual Machine first!
 ⚠️ DO NOT copy-paste the raw code lines directly into an open CMD window. Always save the code as a .bat file and run it by double-clicking, otherwise the registry percentage escaping will corrupt your system binary execution logic!
+NEVER RUN THIS SCRIPT IF YOU HAVE A DISK THATS NOT C: (E.G. D:, E:). IT WILL BREAK SOME REGISTRY KEYS, AND CAUSE SEVERE PROBLEMS. IF YOU HAVE A DIFFERENTLY NAMED DISK, EDIT ALL "C:"S IN THIS CODE WITH YOUR DISK LETTER!!!!!
 > 
 A transparent, open-source Windows batch (`.bat`) script designed for deep system diagnostics, critical registry auditing, and surgical recovery of corrupted or malware-compromised system components.
 

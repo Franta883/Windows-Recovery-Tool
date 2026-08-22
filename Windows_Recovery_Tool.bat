@@ -12,6 +12,7 @@ if %errorLevel% == 0 (
     pause
     exit
 )
+
 echo.
 echo ==================================================================== > "%temp%\disclaimer.txt"
 echo   WARNING / DISCLAIMER - READ BEFORE PROCEEDING >> "%temp%\disclaimer.txt"
@@ -62,9 +63,12 @@ echo.
 
 :: Počká 20 sekund, pokud uživatel nic nezmáčkne, vybere se automaticky možnost 2
 set "REZIM=2"
-choice /t 20 /d 2 /c 12 /m "Enter the selection number (1 or 2)"
-if %errorlevel%==1 set "REZIM=1"
-if %errorlevel%==2 set "REZIM=2"
+echo Enter [1] for Audit or [2] for Recovery.
+echo If no key is pressed within 20 seconds, Recovery starts automatically.
+echo.
+choice /c 12 /t 20 /d 2 /m "Selection"
+if %errorlevel% EQU 2 set "REZIM=2"
+if %errorlevel% EQU 1 set "REZIM=1"
 
 set "LOGFILE=%USERPROFILE%\Desktop\Registry_Audit.txt"
 
@@ -83,8 +87,7 @@ echo === 2/3 Running SFC Scannow ===
 sfc /scannow
 echo.
 
-echo === 3/3 Performing an audit of critical registers and systems (READ-ONLY). ===
-echo. >> "%LOGFILE%"
+echo === 3/3 Performing an audit of critical registers and systems (READ-ONLY). 
 echo "IMAGE FILE EXECUTION OPTIONS & SILENT PROCESS EXIT (64bit a 32bit)" >> "%LOGFILE%"
 echo ------------------------------------------------------------------ >> "%LOGFILE%"
 reg query "HKLM\Software\Microsoft\Windows NT\CurrentVersion\Image File Execution Options" /s >> "%LOGFILE%" 2>&1
@@ -110,13 +113,13 @@ echo SYSTEM SERVICES (SERVICES - IMAGEPATH) >> "%LOGFILE%"
 echo ------------------------------------------- >> "%LOGFILE%"
 reg query "HKLM\System\CurrentControlSet\Services" /s /v ImagePath >> "%LOGFILE%" 2>&1
 echo. >> "%LOGFILE%"
-echo MODULE 1: SUSPICIOUS BEZICI PROCESSES FROM APPDATA >> "%LOGFILE%"
+echo MODULE 1: SUSPICIOUS RUNNING PROCESSES FROM APPDATA >> "%LOGFILE%"
 echo ------------------------------------------- >> "%LOGFILE%"
-wmic process get Name,ExecutablePath 2>nul | findstr /i "AppData" | findstr /i /v "Temp" >> "%LOGFILE%" 2>&1
+PowerShell -ExecutionPolicy Bypass -Command "Get-Process -ErrorAction SilentlyContinue | Where-Object {$_.Path -like '*AppData*' -and $_.Path -notlike '*Temp*'} | Select-Object Name, Path" >> "%LOGFILE%" 2>&1
 echo. >> "%LOGFILE%"
-echo NEW MODULE: CRITICAL RISK - BEZIC PROCESSES FROM TEMPORARY COMPONENT TEMP >> "%LOGFILE%"
+echo NEW MODULE: CRITICAL RISK - RUNNING PROCESSES FROM TEMP >> "%LOGFILE%"
 echo ------------------------------------------------------------------ >> "%LOGFILE%"
-wmic process get Name,ExecutablePath 2>nul | findstr /i "AppData\Local\Temp" >> "%LOGFILE%" 2>&1
+PowerShell -ExecutionPolicy Bypass -Command "Get-Process -ErrorAction SilentlyContinue | Where-Object {$_.Path -like '*AppData\Local\Temp*'} | Select-Object Name, Path" >> "%LOGFILE%" 2>&1
 echo. >> "%LOGFILE%"
 echo MODULE 2: CHECK NON-MICROSOFT SCHEDULED JOBS >> "%LOGFILE%"
 echo ---------------------------------------------------- >> "%LOGFILE%"
@@ -137,11 +140,17 @@ if "%REZIM%"=="2" (
     reg add "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\SystemRestore" /v SystemRestorePointCreationFrequency /t REG_DWORD /d 0 /f >nul 2>&1
     echo [*] Creating an official Windows System Restore Point...
     PowerShell -ExecutionPolicy Bypass -Command "Checkpoint-Computer -Description 'Before_Windows_Recovery_Tool_Fix' -RestorePointType MODIFY_SETTINGS"
+    
+    echo === WINLOGON AND SYSTEM SAFE RECOVERY STARTED ===
+    mkdir "%USERPROFILE%\Desktop\Registry_Backup" >nul 2>&1
+    reg export "HKLM\Software\Microsoft\Windows NT\CurrentVersion\Winlogon" "%USERPROFILE%\Desktop\Registry_Backup\Winlogon_Backup.reg" /y >nul 2>&1
+    reg export "HKLM\SOFTWARE\Policies\Microsoft\Windows Defender" "%USERPROFILE%\Desktop\Registry_Backup\DefenderPolicies_Backup.reg" /y >nul 2>&1
+    
     echo [] Unlocking MMC Snap-ins (Device Manager, Disk Management)...
     reg delete "HKLM\SOFTWARE\Policies\Microsoft\Windows\MMC" /f >nul 2>&1
     reg delete "HKCU\Software\Policies\Microsoft\Windows\MMC" /f >nul 2>&1
     echo [] Resetting and reregistering Windows Settings App...
-    PowerShell -ExecutionPolicy Bypass -Command "Add-AppxPackage -DisableDevelopmentMode -Register '$Env:SystemRoot\ImmersiveControlPanel\AppxManifest.xml'" >> "%LOGFILE%" 2>&1
+    PowerShell -ExecutionPolicy Bypass -Command "Add-AppxPackage -DisableDevelopmentMode -Register '%SystemRoot%\ImmersiveControlPanel\AppxManifest.xml'" >> "%LOGFILE%" 2>&1
     echo [] Restoring Control Panel access and Folder Options...
     reg delete "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\Explorer" /v DisallowCpl /f >nul 2>&1
     reg delete "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\Explorer" /v NoFolderOptions /f >nul 2>&1
@@ -149,19 +158,16 @@ if "%REZIM%"=="2" (
     reg delete "HKCU\Software\Microsoft\Windows\CurrentVersion\Policies\Explorer" /v NoFolderOptions /f >nul 2>&1
     echo [] Repairing WMI Repository (Winmgmt Salvage)...
     winmgmt /salvagerepository >> "%LOGFILE%" 2>&1
-    echo === WINLOGON AND SYSTEM SAFE RECOVERY STARTED ===
-    mkdir "%USERPROFILE%\Desktop\Registry_Backup" >nul 2>&1
-    reg export "HKLM\Software\Microsoft\Windows NT\CurrentVersion\Winlogon" "%USERPROFILE%\Desktop\Registry_Backup\Winlogon_Backup.reg" /y >nul 2>&1
-    reg export "HKLM\SOFTWARE\Policies\Microsoft\Windows Defender" "%USERPROFILE%\Desktop\Registry_Backup\DefenderPolicies_Backup.reg" /y >nul 2>&1
+    
     echo. >> "%LOGFILE%"
     echo ================================================== >> "%LOGFILE%"
     echo   SURGICAL RECOVERY LOG PROTOCOL                   >> "%LOGFILE%"
     echo ================================================== >> "%LOGFILE%"
     echo [*] Resetting Winlogon to factory defaults...
     reg add "HKLM\Software\Microsoft\Windows NT\CurrentVersion\Winlogon" /v Shell /t REG_SZ /d "explorer.exe" /f >> "%LOGFILE%" 2>&1
-    reg add "HKLM\Software\Microsoft\Windows NT\CurrentVersion\Winlogon" /v Userinit /t REG_SZ /d "C:\Windows\system32\userinit.exe," /f >> "%LOGFILE%" 2>&1
+    reg add "HKLM\Software\Microsoft\Windows NT\CurrentVersion\Winlogon" /v Userinit /t REG_SZ /d "%SystemRoot%\system32\userinit.exe," /f >> "%LOGFILE%" 2>&1
     reg add "HKLM\Software\Wow6432Node\Microsoft\Windows NT\CurrentVersion\Winlogon" /v Shell /t REG_SZ /d "explorer.exe" /f >> "%LOGFILE%" 2>&1
-    reg add "HKLM\Software\Wow6432Node\Microsoft\Windows NT\CurrentVersion\Winlogon" /v Userinit /t REG_SZ /d "C:\Windows\system32\userinit.exe," /f >> "%LOGFILE%" 2>&1
+    reg add "HKLM\Software\Wow6432Node\Microsoft\Windows NT\CurrentVersion\Winlogon" /v Userinit /t REG_SZ /d "%SystemRoot%\system32\userinit.exe," /f >> "%LOGFILE%" 2>&1
     reg add "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon" /v AutoAdminLogon /t REG_SZ /d "0" /f >> "%LOGFILE%" 2>&1
     reg add "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon" /v AutoRestartShell /t REG_DWORD /d 1 /f >> "%LOGFILE%" 2>&1
     reg delete "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon" /v DisableCAD /f >nul 2>&1
@@ -189,14 +195,14 @@ if "%REZIM%"=="2" (
     reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" /v HideFileExt /t REG_DWORD /d 0 /f >> "%LOGFILE%" 2>&1
 
 echo [] Resetting the Defender and Firewall policies to their default states...
-reg add HKLM\SOFTWARE\Policies\Microsoft\Windows Defender /v DisableAntiSpyware /t REG_DWORD /d 0 /f >> "%LOGFILE%" 2>&1
-reg add HKLM\SOFTWARE\Policies\Microsoft\Windows Defender /v DisableRealtimeMonitoring /t REG_DWORD /d 0 /f >> "%LOGFILE%" 2>&1
-reg add HKLM\SOFTWARE\Policies\Microsoft\Windows Defender\Real-Time Protection /v DisableRealtimeMonitoring /t REG_DWORD /d 0 /f >> "%LOGFILE%" 2>&1
-reg add HKLM\SOFTWARE\Policies\Microsoft\Windows Defender\Real-Time Protection /v DisableBehaviorMonitoring /t REG_DWORD /d 0 /f >> "%LOGFILE%" 2>&1
-reg add HKLM\SOFTWARE\Policies\Microsoft\Windows Defender\Real-Time Protection /v DisableOnAccessProtection /t REG_DWORD /d 0 /f >> "%LOGFILE%" 2>&1
-reg add HKLM\SOFTWARE\Policies\Microsoft\Windows Defender\Real-Time Protection /v DisableIOAVProtection /t REG_DWORD /d 0 /f >> "%LOGFILE%" 2>&1
-reg add HKLM\SYSTEM\CurrentControlSet\Services\SharedAccess\Parameters\FirewallPolicy\StandardProfile /v EnableFirewall /t REG_DWORD /d 1 /f >> "%LOGFILE%" 2>&1
-reg add HKLM\SYSTEM\CurrentControlSet\Services\WinDefend /v Start /t REG_DWORD /d 2 /f >> "%LOGFILE%" 2>&1
+reg add "HKLM\SOFTWARE\Policies\Microsoft\Windows Defender" /v DisableAntiSpyware /t REG_DWORD /d 0 /f >> "%LOGFILE%" 2>&1
+reg add "HKLM\SOFTWARE\Policies\Microsoft\Windows Defender" /v DisableRealtimeMonitoring /t REG_DWORD /d 0 /f >> "%LOGFILE%" 2>&1
+reg add "HKLM\SOFTWARE\Policies\Microsoft\Windows Defender\Real-Time Protection" /v DisableRealtimeMonitoring /t REG_DWORD /d 0 /f >> "%LOGFILE%" 2>&1
+reg add "HKLM\SOFTWARE\Policies\Microsoft\Windows Defender\Real-Time Protection" /v DisableBehaviorMonitoring /t REG_DWORD /d 0 /f >> "%LOGFILE%" 2>&1
+reg add "HKLM\SOFTWARE\Policies\Microsoft\Windows Defender\Real-Time Protection" /v DisableOnAccessProtection /t REG_DWORD /d 0 /f >> "%LOGFILE%" 2>&1
+reg add "HKLM\SOFTWARE\Policies\Microsoft\Windows Defender\Real-Time Protection" /v DisableIOAVProtection /t REG_DWORD /d 0 /f >> "%LOGFILE%" 2>&1
+reg add "HKLM\SYSTEM\CurrentControlSet\Services\SharedAccess\Parameters\FirewallPolicy\StandardProfile" /v EnableFirewall /t REG_DWORD /d 1 /f >> "%LOGFILE%" 2>&1
+reg add "HKLM\SYSTEM\CurrentControlSet\Services\WinDefend" /v Start /t REG_DWORD /d 2 /f >> "%LOGFILE%" 2>&1
 
 echo [] Resetting the Windows Firewall to factory settings and turning it on...
 netsh advfirewall reset >> "%LOGFILE%" 2>&1
@@ -218,48 +224,40 @@ RD /S /Q %WinDir%\System32\GroupPolicyUsers >> "%LOGFILE%" 2>&1
 RD /S /Q %WinDir%\System32\GroupPolicy >> "%LOGFILE%" 2>&1
 gpupdate /force >> "%LOGFILE%" 2>&1
 
-reg add HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer /v SmartScreenEnabled /t REG_SZ /d RequireAdmin /f
-reg add HKLM\SYSTEM\CurrentControlSet\Services\wscsvc /v Start /t REG_DWORD /d 2 /f
+reg add "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer" /v SmartScreenEnabled /t REG_SZ /d RequireAdmin /f
+reg add "HKLM\SYSTEM\CurrentControlSet\Services\wscsvc" /v Start /t REG_DWORD /d 2 /f
 
 echo [OK] Safe recovery, network restoration, and updates—including Defender—have been completed.
 
 echo [] Resetting network providers to factory order (NetworkProvider)...
-reg add HKLM\SYSTEM\CurrentControlSet\Control\NetworkProvider\Order /v ProviderOrder /t REG_SZ /d RDPNP,LanmanWorkstation,webclient /f >> "%LOGFILE%" 2>&1
+reg add "HKLM\SYSTEM\CurrentControlSet\Control\NetworkProvider\Order" /v ProviderOrder /t REG_SZ /d RDPNP,LanmanWorkstation,webclient /f >> "%LOGFILE%" 2>&1
 
 echo [] Cleaning up hidden persistence in the Internet Explorer registry and BHOs....
-reg delete HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\explorer\Browser Helper Objects /f >nul 2>&1
-reg add HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\explorer\Browser Helper Objects /f >> "%LOGFILE%" 2>&1
-reg delete HKLM\SOFTWARE\Microsoft\Internet Explorer\Extensions /f >nul 2>&1
-reg add HKLM\SOFTWARE\Microsoft\Internet Explorer\Extensions /f >> "%LOGFILE%" 2>&1
+reg delete "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\explorer\Browser Helper Objects" /f >nul 2>&1
+reg add "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\explorer\Browser Helper Objects" /f >> "%LOGFILE%" 2>&1
+reg delete "HKLM\SOFTWARE\Microsoft\Internet Explorer\Extensions" /f >nul 2>&1
+reg add "HKLM\SOFTWARE\Microsoft\Internet Explorer\Extensions" /f >> "%LOGFILE%" 2>&1
 
 echo [] Resetting LSA authentication and security packages to default (Lsa)...
-reg add HKLM\SYSTEM\CurrentControlSet\Control\Lsa /v "Security Packages" /t REG_MULTI_SZ /d kerberos\0msv1_0\0schannel\0wdigest\0tspkg\0pku2u /f >> "%LOGFILE%" 2>&1
-reg add HKLM\SYSTEM\CurrentControlSet\Control\Lsa /v "Notification Packages" /t REG_MULTI_SZ /d scecli /f >> "%LOGFILE%" 2>&1
-reg add HKLM\SYSTEM\CurrentControlSet\Control\Lsa /v "Authentication Packages" /t REG_MULTI_SZ /d msv1_0 /f >> "%LOGFILE%" 2>&1
+reg add "HKLM\SYSTEM\CurrentControlSet\Control\Lsa" /v "Security Packages" /t REG_MULTI_SZ /d kerberos\0msv1_0\0schannel\0wdigest\0tspkg\0pku2u /f >> "%LOGFILE%" 2>&1
+reg add "HKLM\SYSTEM\CurrentControlSet\Control\Lsa" /v "Notification Packages" /t REG_MULTI_SZ /d scecli /f >> "%LOGFILE%" 2>&1
+reg add "HKLM\SYSTEM\CurrentControlSet\Control\Lsa" /v "Authentication Packages" /t REG_MULTI_SZ /d msv1_0 /f >> "%LOGFILE%" 2>&1
 
 echo [] Removing and cleaning Winlogon system notification modules...
-reg delete HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon\Notify /f >nul 2>&1
-reg add HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon\Notify /f >> "%LOGFILE%" 2>&1
-reg delete HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon /v Taskman /f >nul 2>&1
-reg delete HKCU\Software\Microsoft\Windows NT\CurrentVersion\Winlogon /v Shell /f >nul 2>&1
-
-echo [] Removing hidden startup entries via Active Setup....
-for /f "tokens=*" %%A in ('reg query "HKLM\SOFTWARE\Microsoft\Active Setup\Installed Components" 2^>nul') do (
-    echo %%A | findstr /i "{" >nul
-    if errorlevel 1 (
-        reg delete "%%A" /f >nul 2>&1
-    )
-)
+reg delete "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon\Notify" /f >nul 2>&1
+reg add "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon\Notify" /f >> "%LOGFILE%" 2>&1
+reg delete "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon" /v Taskman /f >nul 2>&1
+reg delete "HKCU\Software\Microsoft\Windows NT\CurrentVersion\Winlogon" /v Shell /f >nul 2>&1
 
 echo [] Blocking the exploitation of FastProx COM hijacking...
-reg add HKLM\SOFTWARE\Microsoft\COM3\FastProx /ve /t REG_SZ /d %%SystemRoot%%\system32\wbem\fastprox.dll /f >> "%LOGFILE%" 2>&1
+reg add "HKLM\SOFTWARE\Microsoft\COM3\FastProx" /ve /t REG_SZ /d %%SystemRoot%%\system32\wbem\fastprox.dll /f >> "%LOGFILE%" 2>&1
 
 echo [] Cleaning specific malware CLSID entries in the user profile...
-reg delete HKCU\Software\Classes\CLSID\{42aedc87-2188-41fd-b9a3-0c966feabec1} /f >nul 2>&1
-reg delete HKCU\Software\Classes\CLSID\{F04A1B42-8D39-4aa1-8591-9E2FA5466456} /f >nul 2>&1
+reg delete "HKCU\Software\Classes\CLSID\{42aedc87-2188-41fd-b9a3-0c966feabec1}" /f >nul 2>&1
+reg delete "HKCU\Software\Classes\CLSID\{F04A1B42-8D39-4aa1-8591-9E2FA5466456}" /f >nul 2>&1
 
 echo [] Starting complete repair of boot (in case of a bootloader error/malicious change)(BCDBOOT)...
-bcdboot %SystemRoot% /l cs-CZ /f ALL >> "%LOGFILE%" 2>&1
+bcdboot %SystemRoot% /l current /f ALL >> "%LOGFILE%" 2>&1
 
 reg add "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System" /v DisableCAD /t REG_DWORD /d 0 /f >> "%LOGFILE%" 2>&1
 
@@ -305,7 +303,6 @@ set /p TOOLCHOICE=Choose 1 or more options (e.g. 1,3 or 1 2 5):
 
 set TOOLCHOICE=%TOOLCHOICE:,= %
 
-setlocal enabledelayedexpansion
 for %%G in (%TOOLCHOICE%) do (
     if "%%G"=="1" (
         echo [] Attempting to repair internet connection...
@@ -326,13 +323,15 @@ for %%G in (%TOOLCHOICE%) do (
         start explorer.exe
     )
     if "%%G"=="3" (
-        echo [] Reregistering system dlls (this will probably take a while)...
-        for %%i in (%windir%\system32\*.dll) do regsvr32.exe /s "%%i"
-        for %%i in (%windir%\syswow64\*.dll) do regsvr32.exe /s "%%i"
+        echo [] Reregistering core system component libraries safely...
+        for %%V in (ole32.dll oleaut32.dll jscript.dll vbscript.dll shell32.dll actxprxy.dll clbcatq.dll) do (
+            regsvr32.exe /s "%windir%\system32\%%V"
+            if exist "%windir%\syswow64\%%V" regsvr32.exe /s "%windir%\syswow64\%%V"
+        )
     )
     if "%%G"=="4" (
         echo [] Reregistering system apps...
-        PowerShell -ExecutionPolicy Bypass -Command "Get-AppXPackage -AllUsers | Foreach {Add-AppxPackage -DisableDevelopmentMode -Register '$($_.InstallLocation)\AppXManifest.xml'}" >> "%LOGFILE%" 2>&1
+       PowerShell -ExecutionPolicy Bypass -Command "Get-AppXPackage -AllUsers | ForEach-Object { Add-AppxPackage -DisableDevelopmentMode -Register ($_.InstallLocation + '\AppXManifest.xml') }" >> "%LOGFILE%" 2>&1
     )
     if "%%G"=="5" (
         echo [] Scheduling chkdsk on restart...
